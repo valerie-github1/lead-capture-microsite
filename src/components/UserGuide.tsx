@@ -1,5 +1,5 @@
 import React from "react";
-import { Compass, BookOpen, CheckCircle, Smartphone, Award, HelpCircle, Users } from "lucide-react";
+import { Compass, BookOpen, CheckCircle, Smartphone, Award, HelpCircle, Users, Clock } from "lucide-react";
 
 export const UserGuide: React.FC = () => {
   return (
@@ -125,7 +125,23 @@ export const UserGuide: React.FC = () => {
             <div>
               <h3 className="font-serif font-medium text-lg text-ink">7. Official Print Dossier Compiler & Export Previews</h3>
               <p className="text-sm text-taupe-light mt-1.5 leading-relaxed">
-                The <strong>NCBA Briefing Booklet Room</strong> compiles clean, audit-ready physical PDF documents of the entire delegation registry. Additionally, whenever you download CSVs or trigger syncs under the Exports tab, a confirmation panel displays a live preview summary of records, classification counts, and priority markers prior to compilation.
+                The <strong>NCBA Briefing Booklet Room</strong> compiles clean, audit-ready physical PDF documents of the entire delegation registry. This compiler has been fully optimized to prevent blank preview pages. The interactive control panel handles instant layout swaps (cards or list tables) with high-fidelity system printing, while leaving the print sheets automatically unconstrained and pristine on any system printer engine or cloud deployment.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 8 */}
+        <div className="bg-ivory border border-line p-5 rounded-md relative overflow-hidden">
+          <div className="absolute top-0 left-0 bottom-0 w-1 bg-gold" />
+          <div className="flex gap-4">
+            <div className="w-10 h-10 rounded-full bg-moss/10 flex items-center justify-center text-moss flex-shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-serif font-medium text-lg text-ink">8. Bilateral Meeting Real-time Alerts & Simulation</h3>
+              <p className="text-sm text-taupe-light mt-1.5 leading-relaxed">
+                The workspace features an integrated <strong>B2B Meeting Visual Alert System</strong>. It triggers high-visibility neon gold pulsing banners 15 minutes prior to any scheduled attendee session, allowing delegates to review historical investor dossiers instantly. It also supports active green in-progress indicators during session hours. Staff can simulate specific times and date targets directly through the immersive Simulation Console under the <em>Meetings</em> tab.
               </p>
             </div>
           </div>
@@ -138,9 +154,21 @@ export const UserGuide: React.FC = () => {
           </h3>
           <div className="space-y-4 text-xs">
             <div>
+              <strong className="text-moss block font-semibold mb-1">Q: Why did my print/save PDF preview look blank, and is it fixed?</strong>
+              <p className="text-taupe leading-relaxed">
+                Yes! The previous version applied a full `no-print` visibility block to the modal viewport container itself. This has been resolved; only the top-bar control tools are hidden during the print process, ensuring the underlying document compiles perfectly onto your physical or digital letterpress system sheets.
+              </p>
+            </div>
+            <div>
               <strong className="text-moss block font-semibold mb-1">Q: Does the app lose saved leads if closed?</strong>
               <p className="text-taupe leading-relaxed">
                 No. Captures are kept locally inside the browser's persistent sandbox (`localStorage`). They will survive closing the tab, browser reboots, and offline environments.
+              </p>
+            </div>
+            <div>
+              <strong className="text-moss block font-semibold mb-1">Q: Whose logo is shown as our main branding/favicon?</strong>
+              <p className="text-taupe leading-relaxed">
+                The application renders the highly detailed emblem of the <strong>National Board for Technology Incubation (NBTI) Abuja</strong>. This high-resolution insignia has been properly placed inside the static asset root to guarantee immediate favicon loading and visual parity across all production and Vercel CDN servers.
               </p>
             </div>
             <div>
