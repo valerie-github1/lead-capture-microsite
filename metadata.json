@@ -1,0 +1,6 @@
+{
+  "name": "Canada-Africa Lead Capture Microsite",
+  "description": "Official lead capture and landing page for the NBTI delegation at the Canada-Africa Innovation Festival.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
