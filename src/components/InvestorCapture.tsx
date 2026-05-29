@@ -232,6 +232,99 @@ export const InvestorCapture: React.FC<InvestorCaptureProps> = ({
     setToastTimer(timer);
   };
 
+  // State for simulated ecosystem clock and visual alerts
+  const [currentTime, setCurrentTime] = useState<Date>(() => {
+    const initDate = new Date();
+    // Anchor standard simulation day to the database target date: Friday May 29, 2026
+    // We default set standard test hour to May 29, 2026, at 17:15 (making the 17:30 meeting starts in 15min)
+    initDate.setFullYear(2026, 4, 29); // May (month 4) 29
+    initDate.setHours(17, 15, 0, 0);   // 17:15
+    return initDate;
+  });
+  const [isLiveClock, setIsLiveClock] = useState(false);
+
+  const syncToTorontoTime = (showToastMsg = true) => {
+    try {
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        second: "numeric",
+        hour12: false
+      });
+      const parts = formatter.formatToParts(now);
+      const map: Record<string, number> = {};
+      parts.forEach(p => {
+        if (p.type !== "literal") {
+          map[p.type] = parseInt(p.value, 10);
+        }
+      });
+      
+      const torontoDate = new Date();
+      torontoDate.setFullYear(2026, 4, 29); // Anchor to Friday May 29, 2026
+      torontoDate.setHours(map.hour || 0, map.minute || 0, map.second || 0, 0);
+      
+      setCurrentTime(torontoDate);
+      if (showToastMsg) {
+        showToast("🇨🇦 Synced simulation clock to True Toronto Time (EDT)!");
+      }
+    } catch (e) {
+      const d = new Date();
+      d.setFullYear(2026, 4, 29);
+      setCurrentTime(d);
+      if (showToastMsg) {
+        showToast("⏳ Resynced to standard browser local timezone");
+      }
+    }
+  };
+
+  // Live timer tick behavior
+  React.useEffect(() => {
+    if (!isLiveClock) return;
+    const interval = setInterval(() => {
+      setCurrentTime((prev) => new Date(prev.getTime() + 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isLiveClock]);
+
+  // Helper to compute minutes remaining for a specific b2b meeting
+  const getMeetingRemainingMinutes = (m: Meeting, refTime: Date): number | null => {
+    let meetDay = 29;
+    let meetMonth = 4; // May (month 4)
+    let meetYear = 2026;
+
+    if (!m.dateStr) return null;
+
+    if (m.dateStr.includes("Mon 1 Jun") || m.dateStr.includes("1 Jun")) {
+      meetDay = 1;
+      meetMonth = 5; // June (month 5)
+    } else if (m.dateStr.includes("Today") || m.dateStr.includes("Fri 29 May") || m.dateStr.includes("29 May")) {
+      meetDay = 29;
+      meetMonth = 4; // May (month 4)
+    } else {
+      return null;
+    }
+
+    const parts = m.time.split(":");
+    if (parts.length !== 2) return null;
+    const meetHour = parseInt(parts[0], 10);
+    const meetMin = parseInt(parts[1], 10);
+    if (isNaN(meetHour) || isNaN(meetMin)) return null;
+
+    const meetDate = new Date(meetYear, meetMonth, meetDay, meetHour, meetMin, 0, 0);
+    const diffMs = meetDate.getTime() - refTime.getTime();
+    
+    // We only trigger real-time alert badges when simulated timeline aligns with actual date
+    if (refTime.getFullYear() === meetYear && refTime.getMonth() === meetMonth && refTime.getDate() === meetDay) {
+      return Math.round(diffMs / 60000);
+    }
+    return null;
+  };
+
   const getToneFromTag = (tag: string): "gold" | "moss" | "laurel" | "clay" => {
     switch (tag) {
       case "Investor":
@@ -541,21 +634,142 @@ export const InvestorCapture: React.FC<InvestorCaptureProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* 1.5 GLOBAL UPCOMING MEETING ALERT SYSTEM */}
+      {(() => {
+        const upcomingDetails = meetings
+          .map(m => {
+            const mins = getMeetingRemainingMinutes(m, currentTime);
+            return { m, mins };
+          })
+          .filter(item => item.mins !== null && item.mins >= 0 && item.mins <= 15)
+          .sort((a, b) => a.mins! - b.mins!);
+
+        const activeDetails = meetings
+          .map(m => {
+            const mins = getMeetingRemainingMinutes(m, currentTime);
+            const durationStr = m.duration || "30 min";
+            const durationMins = parseInt(durationStr, 10) || 30;
+            return { m, mins, durationMins };
+          })
+          .filter(item => item.mins !== null && item.mins < 0 && item.mins >= -item.durationMins)
+          .sort((a, b) => b.mins! - a.mins!);
+
+        if (upcomingDetails.length === 0 && activeDetails.length === 0) return null;
+
+        return (
+          <div className="space-y-2.5">
+            {upcomingDetails.map(({ m, mins }) => (
+              <motion.div
+                key={`banner-up-${m.id}`}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gold/10 border border-gold/40 rounded p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm relative overflow-hidden"
+              >
+                {/* Visual subtle pulsing gold highlight line */}
+                <div className="absolute top-0 bottom-0 left-0 w-1 bg-gold animate-pulse" />
+                <div className="flex items-start md:items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-gold/20 flex items-center justify-center text-gold self-center shrink-0">
+                    <BadgeAlert className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[9px] uppercase tracking-wider text-gold font-bold">Upcoming B2B Meeting Today</span>
+                      <span className="h-1.5 w-1.5 rounded-full bg-gold animate-pulse" />
+                    </div>
+                    <h4 className="font-serif font-semibold text-sm text-ink mt-0.5">
+                      Session with <span className="text-moss font-semibold">{m.leadName}</span> ({m.orgName}) starts in <span className="font-mono text-moss font-bold">{mins === 0 ? "NOW" : `${mins} min`}</span>
+                    </h4>
+                    <p className="text-xs text-taupe mt-0.5">
+                      Scheduled time: <strong className="font-mono">{m.time} {m.period}</strong> · Venue: <strong>{m.location}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-stretch md:self-auto justify-end shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const l = leads.find(lead => lead.id === m.leadId);
+                      if (l) onSelectItem(l);
+                    }}
+                    className="px-3 py-1.5 bg-gold text-ink font-sans font-medium text-xs rounded hover:bg-gold-light transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>View Dossier</span>
+                    <span>→</span>
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+
+            {activeDetails.map(({ m, mins, durationMins }) => (
+              <motion.div
+                key={`banner-act-${m.id}`}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-laurel/10 border border-laurel/30 rounded p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm relative overflow-hidden"
+              >
+                <div className="absolute top-0 bottom-0 left-0 w-1 bg-laurel animate-pulse" />
+                <div className="flex items-start md:items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-laurel/20 flex items-center justify-center text-laurel self-center shrink-0">
+                    <CheckCircle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[9px] uppercase tracking-wider text-laurel font-bold">Bilateral Session In Progress</span>
+                      <span className="h-1.5 w-1.5 rounded-full bg-laurel animate-pulse" />
+                    </div>
+                    <h4 className="font-serif font-semibold text-sm text-ink mt-0.5">
+                      Meeting with <span className="text-moss font-semibold">{m.leadName}</span> ({m.orgName}) is active
+                    </h4>
+                    <p className="text-xs text-taupe mt-0.5">
+                      Started <span className="font-mono text-laurel font-bold">{Math.abs(mins!)} mins ago</span> (Duration: {m.duration}) · Venue: <strong>{m.location}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-stretch md:self-auto justify-end shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const l = leads.find(lead => lead.id === m.leadId);
+                      if (l) onSelectItem(l);
+                    }}
+                    className="px-3 py-1.5 bg-laurel text-cream font-sans font-medium text-xs rounded hover:bg-laurel-deep transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>Manage Session</span>
+                    <span>→</span>
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* 2. TAB CONTROL SUB-NAVIGATION */}
       <div className="flex border-b border-line pb-0.5 space-x-6 overflow-x-auto scrollbar-none -mx-6 px-6">
-        {["overview", "capture", "leads", "activity", "analytics", "meetings", "exports"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => onTabChange(tab)}
-            className={`font-mono text-[9.5px] tracking-widest uppercase pb-3 border-b-2 font-medium whitespace-nowrap cursor-pointer transition-all ${
-              currentTab === tab
-                ? "border-gold text-moss scale-102"
-                : "border-transparent text-taupe-light hover:text-moss"
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+        {["overview", "capture", "leads", "activity", "analytics", "meetings", "exports"].map((tab) => {
+          const hasUpcomingAlertInTab = tab === "meetings" && meetings.some(m => {
+            const mins = getMeetingRemainingMinutes(m, currentTime);
+            return mins !== null && mins >= 0 && mins <= 15;
+          });
+          return (
+            <button
+              key={tab}
+              onClick={() => onTabChange(tab)}
+              className={`font-mono text-[9.5px] tracking-widest uppercase pb-3 border-b-2 font-medium whitespace-nowrap cursor-pointer transition-all flex items-center gap-1.5 ${
+                currentTab === tab
+                  ? "border-gold text-moss scale-102"
+                  : "border-transparent text-taupe-light hover:text-moss"
+              }`}
+            >
+              <span>{tab}</span>
+              {hasUpcomingAlertInTab && (
+                <span className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse ring-2 ring-gold/40" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* 3. SUB-MODULE ROUTING */}
@@ -1504,16 +1718,205 @@ export const InvestorCapture: React.FC<InvestorCaptureProps> = ({
       {/* MEETINGS MODULE */}
       {currentTab === "meetings" && (
         <motion.div key="meetings-view" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-          <div className="border-b border-line pb-4">
-            <span className="font-mono text-[9px] tracking-widest uppercase text-gold-soft">Ecosystem calendars</span>
-            <h2 className="font-serif text-3xl font-medium tracking-tight text-ink mt-1">Calendar Follow-ups</h2>
-            <p className="text-sm text-taupe mt-1 leading-relaxed">
-              Review delegation schedule blockings. Direct physical appointments take place on delegation floor structures, virtual syncs are mapped to workspace relays.
-            </p>
+          <div className="border-b border-line pb-4 flex flex-col md:flex-row md:items-baseline justify-between gap-2">
+            <div>
+              <span className="font-mono text-[9px] tracking-widest uppercase text-gold-soft">Ecosystem calendars</span>
+              <h2 className="font-serif text-3xl font-medium tracking-tight text-ink mt-1 border-none pb-0">Calendar Follow-ups</h2>
+              <p className="text-sm text-taupe mt-1 leading-relaxed">
+                Review delegation schedule blockings. Direct physical appointments take place on delegation floor structures, virtual syncs are mapped to workspace relays.
+              </p>
+            </div>
+          </div>
+
+          {/* SIMULATED ECOSYSTEM TIME CONTROLLER */}
+          <div className="bg-[#fcfbf9] border border-line-soft rounded-lg p-5 shadow-xs">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <span className="font-mono text-[8px] tracking-widest uppercase text-gold-soft font-bold block">B2B Schedulers Simulation Console</span>
+                <div className="flex items-center gap-2.5 mt-1.5">
+                  <Clock className="w-4 h-4 text-moss" />
+                  <span className="font-mono text-[13px] font-bold tracking-tight text-ink">
+                    {currentTime.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+                  </span>
+                  <span className="px-2 py-0.5 bg-ink text-cream font-mono text-[12px] font-bold rounded tracking-wider shadow-sm flex items-center justify-center">
+                    {currentTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
+                  </span>
+                  <span className="font-mono text-[10px] text-taupe font-semibold">EDT</span>
+                </div>
+                <p className="text-[10.5px] text-taupe mt-2 max-w-xl leading-relaxed">
+                  Adjust simulated delegation clock settings below to trigger real-time 15-minute visual alarm banners and in-progress bilateral meeting flows instantly.
+                </p>
+              </div>
+
+              {/* Live tick toggle */}
+              <div className="flex items-center gap-2.5 bg-white border border-line-soft rounded px-3 py-2 shrink-0 shadow-2xs">
+                <span className="font-mono text-[9px] uppercase tracking-wider text-taupe font-medium select-none">Live seconds tick</span>
+                <button
+                  type="button"
+                  onClick={() => setIsLiveClock(!isLiveClock)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${isLiveClock ? "bg-moss" : "bg-stone-300"}`}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${isLiveClock ? "translate-x-4" : "translate-x-0"}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Controls sliders and Day toggle */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 mt-4 pt-4 border-t border-line-soft">
+              {/* Slider Hours */}
+              <div className="md:col-span-4 space-y-1.5">
+                <div className="flex justify-between font-mono text-[9px] text-taupe-light uppercase">
+                  <span>Hour Control</span>
+                  <span className="text-moss font-bold">{currentTime.getHours().toString().padStart(2, "0")}:00</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="23"
+                  value={currentTime.getHours()}
+                  onChange={(e) => {
+                    const h = parseInt(e.target.value, 10);
+                    const newDate = new Date(currentTime.getTime());
+                    newDate.setHours(h);
+                    setCurrentTime(newDate);
+                  }}
+                  className="w-full accent-moss h-1 bg-stone-200 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              {/* Slider Minutes */}
+              <div className="md:col-span-4 space-y-1.5">
+                <div className="flex justify-between font-mono text-[9px] text-taupe-light uppercase">
+                  <span>Minute Control</span>
+                  <span className="text-moss font-bold">{currentTime.getMinutes().toString().padStart(2, "0")}m</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="59"
+                  value={currentTime.getMinutes()}
+                  onChange={(e) => {
+                    const m = parseInt(e.target.value, 10);
+                    const newDate = new Date(currentTime.getTime());
+                    newDate.setMinutes(m);
+                    setCurrentTime(newDate);
+                  }}
+                  className="w-full accent-moss h-1 bg-stone-200 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              {/* Day Selection */}
+              <div className="md:col-span-4 flex flex-col justify-end">
+                <span className="font-mono text-[9px] text-taupe-light uppercase mb-1.5">Simulation Target Date</span>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newDate = new Date(currentTime.getTime());
+                      newDate.setFullYear(2026, 4, 29); // Fri 29 May
+                      setCurrentTime(newDate);
+                    }}
+                    className={`flex-1 py-1 px-2 border rounded font-mono text-[9px] uppercase transition-all tracking-tight ${currentTime.getDate() === 29 ? "bg-moss text-cream border-moss font-bold shadow-xs" : "bg-white text-taupe hover:text-ink border-stone-200"}`}
+                  >
+                    Fri 29 May
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newDate = new Date(currentTime.getTime());
+                      newDate.setFullYear(2026, 5, 1); // Mon 1 Jun
+                      setCurrentTime(newDate);
+                    }}
+                    className={`flex-1 py-1 px-2 border rounded font-mono text-[9px] uppercase transition-all tracking-tight ${currentTime.getDate() === 1 ? "bg-moss text-cream border-moss font-bold shadow-xs" : "bg-white text-taupe hover:text-ink border-stone-200"}`}
+                  >
+                    Mon 1 Jun
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* High-Fidelity Test Overrides */}
+            <div className="mt-4 pt-3.5 border-t border-line-soft">
+              <span className="font-mono text-[8px] tracking-wider uppercase text-taupe font-semibold block mb-2">Test scenarios (one-click simulation overrides)</span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date(currentTime.getTime());
+                    d.setFullYear(2026, 4, 29); // Fri 29 May
+                    d.setHours(17, 15, 0, 0); // Adaeze starts in 15 min (17:30)
+                    setCurrentTime(d);
+                    setIsLiveClock(false);
+                    showToast("⏳ Preset loaded: Adaeze Nwosu starts in 15 min (17:30)");
+                  }}
+                  className="px-2.5 py-1.5 bg-cream hover:bg-[#eae6de] border border-[#e2ddd5] rounded font-sans text-[10px] text-ink font-medium transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer hover:border-moss"
+                >
+                  <BadgeAlert className="w-3.5 h-3.5 text-gold animate-bounce" />
+                  <span>Adaeze alert (17:15)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date(currentTime.getTime());
+                    d.setFullYear(2026, 4, 29); // Fri 29 May
+                    d.setHours(18, 5, 0, 0); // Marcus starts in 10 min (18:15)
+                    setCurrentTime(d);
+                    setIsLiveClock(false);
+                    showToast("⏳ Preset loaded: Marcus Beaumont starts in 10 min (18:15)");
+                  }}
+                  className="px-2.5 py-1.5 bg-cream hover:bg-[#eae6de] border border-[#e2ddd5] rounded font-sans text-[10px] text-ink font-medium transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer hover:border-moss"
+                >
+                  <BadgeAlert className="w-3.5 h-3.5 text-gold animate-bounce" />
+                  <span>Marcus alert (18:05)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date(currentTime.getTime());
+                    d.setFullYear(2026, 4, 29); // Fri 29 May
+                    d.setHours(17, 45, 0, 0); // Adaeze is in progress (starts 17:30, 30min duration)
+                    setCurrentTime(d);
+                    setIsLiveClock(false);
+                    showToast("⏳ Preset loaded: Adaeze Nwosu meeting in progress");
+                  }}
+                  className="px-2.5 py-1.5 bg-cream hover:bg-[#eae6de] border border-[#e2ddd5] rounded font-sans text-[10px] text-ink font-medium transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer hover:border-moss"
+                >
+                  <span className="w-2 h-2 rounded-full bg-laurel animate-ping shrink-0" />
+                  <span>In Progress (17:45)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    syncToTorontoTime(true);
+                  }}
+                  className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100/80 border border-red-200 text-red-800 rounded font-sans text-[10px] font-semibold transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer ml-auto hover:border-red-300"
+                >
+                  <span className="text-xs">🇨🇦</span>
+                  <span>Sync to True Toronto Time (EDT)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date();
+                    d.setFullYear(2026, 4, 29); // default mock day
+                    setCurrentTime(d);
+                    showToast("⏳ Simulation hours resynced to live computer minutes");
+                  }}
+                  className="px-2.5 py-1.5 bg-white hover:bg-stone-50 border border-stone-200 rounded font-sans text-[10px] text-taupe hover:text-ink transition-all shadow-2xs inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCw className="w-3 h-3 text-taupe" />
+                  <span>Match Browser Time</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-6">
-            {/* Days group */}
+            {/* Today's appointments group */}
             <div>
               <div className="flex items-center gap-3 font-mono text-[9px] tracking-widest uppercase text-gold-soft mb-4">
                 <span>Active Today · Fri 29 May</span>
@@ -1521,40 +1924,81 @@ export const InvestorCapture: React.FC<InvestorCaptureProps> = ({
               </div>
 
               <div className="space-y-2.5">
-                {meetings.filter(m => m.dateStr.includes("Today")).map((m) => (
-                  <div
-                    key={m.id}
-                    onClick={() => {
-                      const associatedLead = leads.find(l => l.id === m.leadId);
-                      if (associatedLead) onSelectItem(associatedLead);
-                    }}
-                    className={`grid grid-cols-[56px_1fr_auto] gap-4 p-4 bg-ivory border border-line rounded cursor-pointer relative hover:border-moss transition-all group`}
-                  >
-                    <div className={`absolute top-4 bottom-4 left-0 w-0.5 rounded-full ${m.isVirtual ? "bg-laurel" : "bg-gold"} `} />
-                    <div className="text-center flex flex-col justify-center leading-none text-ink pr-1 border-r border-line-soft select-none">
-                      <span className="font-serif font-semibold text-[22px] tracking-tighter">{m.time}</span>
-                      <span className="font-mono text-[8px] tracking-widest text-taupe-light mt-1.5 uppercase">{m.period}</span>
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="font-serif font-medium text-base text-ink truncate">{m.leadName}</h4>
-                      <p className="text-xs text-taupe mt-0.5 truncate">{m.orgName}</p>
-                      <div className="flex items-center gap-1.5 mt-2 text-[10px] text-gold font-mono uppercase tracking-wider font-semibold">
-                        <span className={`px-2 py-0.5 rounded-full ${m.isVirtual ? "bg-laurel/10 text-laurel" : "bg-gold/10 text-gold"} `}>
-                          {m.isVirtual ? "Virtual" : "Floor Venue"}
-                        </span>
-                        <span className="text-taupe-light font-normal text-[9px]">{m.location}</span>
+                {meetings.filter(m => m.dateStr.includes("Today")).map((m) => {
+                  const mins = getMeetingRemainingMinutes(m, currentTime);
+                  const isUrgent = mins !== null && mins >= 0 && mins <= 15;
+                  
+                  const durationStr = m.duration || "30 min";
+                  const durationMins = parseInt(durationStr, 10) || 30;
+                  const isActiveNow = mins !== null && mins < 0 && mins >= -durationMins;
+
+                  let cardStyle = "border-line bg-ivory hover:border-moss";
+                  let bgLeftLineColor = m.isVirtual ? "bg-laurel" : "bg-gold";
+                  let glowAnimation = "";
+
+                  if (isUrgent) {
+                    cardStyle = "border-gold/60 bg-gold/5 hover:border-gold hover:shadow-md";
+                    bgLeftLineColor = "bg-gold";
+                    glowAnimation = "ring-2 ring-gold/20 animate-pulse";
+                  } else if (isActiveNow) {
+                    cardStyle = "border-laurel/60 bg-laurel/5 hover:border-laurel hover:shadow-md";
+                    bgLeftLineColor = "bg-laurel";
+                    glowAnimation = "ring-2 ring-laurel/20 animate-pulse";
+                  }
+
+                  return (
+                    <div
+                      key={m.id}
+                      onClick={() => {
+                        const associatedLead = leads.find(l => l.id === m.leadId);
+                        if (associatedLead) onSelectItem(associatedLead);
+                      }}
+                      className={`grid grid-cols-[56px_1fr_auto] gap-4 p-4 rounded cursor-pointer relative transition-all group ${cardStyle} ${glowAnimation}`}
+                    >
+                      <div className={`absolute top-4 bottom-4 left-0 w-1 rounded-full ${bgLeftLineColor}`} />
+                      <div className="text-center flex flex-col justify-center leading-none text-ink pr-1 border-r border-line-soft select-none">
+                        <span className="font-serif font-semibold text-[22px] tracking-tighter">{m.time}</span>
+                        <span className="font-mono text-[8px] tracking-widest text-taupe-light mt-1.5 uppercase">{m.period}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+                          <h4 className="font-serif font-medium text-base text-ink truncate">{m.leadName}</h4>
+                          {isUrgent && (
+                            <span className="px-1.5 py-0.5 rounded bg-gold text-ink font-mono text-[8px] font-bold tracking-wider uppercase flex items-center gap-0.5 shadow-sm">
+                              <span className="w-1 h-1 rounded-full bg-ink animate-ping" />
+                              Starts in {mins === 0 ? "NOW" : `${mins}m`}
+                            </span>
+                          )}
+                          {isActiveNow && (
+                            <span className="px-1.5 py-0.5 rounded bg-laurel text-cream font-mono text-[8px] font-bold tracking-wider uppercase flex items-center gap-1 shadow-sm">
+                              <span className="w-1.5 h-1.5 rounded-full bg-cream animate-ping" />
+                              Active Now
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-taupe mt-0.5 truncate">{m.orgName}</p>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[10px] text-gold font-mono uppercase tracking-wider font-semibold">
+                          <span className={`px-2 py-0.5 rounded-full ${m.isVirtual ? "bg-laurel/10 text-laurel" : "bg-gold/10 text-gold"} `}>
+                            {m.isVirtual ? "Virtual" : "Floor Venue"}
+                          </span>
+                          <span className="text-taupe-light font-normal text-[9px] truncate max-w-[200px]">{m.location}</span>
+                          {mins !== null && mins < -durationMins && (
+                            <span className="text-taupe-light font-normal text-[9px] line-through ml-auto">Concluded</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="self-center shrink-0">
+                        <div className="w-8 h-8 rounded-full border border-line flex items-center justify-center text-taupe group-hover:text-moss group-hover:border-moss transition-all bg-white/50">
+                          <span>→</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="self-center">
-                      <div className="w-8 h-8 rounded-full border border-line flex items-center justify-center text-taupe group-hover:text-moss group-hover:border-moss transition-all">
-                        <span>→</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
+            {/* Subsequent follow-ups appointments group */}
             <div>
               <div className="flex items-center gap-3 font-mono text-[9px] tracking-widest uppercase text-gold-soft mb-4">
                 <span>Subsequent Followups · Mon 1 Jun</span>
@@ -1562,37 +2006,77 @@ export const InvestorCapture: React.FC<InvestorCaptureProps> = ({
               </div>
 
               <div className="space-y-2.5">
-                {meetings.filter(m => !m.dateStr.includes("Today")).map((m) => (
-                  <div
-                    key={m.id}
-                    onClick={() => {
-                      const associatedLead = leads.find(l => l.id === m.leadId);
-                      if (associatedLead) onSelectItem(associatedLead);
-                    }}
-                    className={`grid grid-cols-[56px_1fr_auto] gap-4 p-4 bg-ivory border border-line rounded cursor-pointer relative hover:border-moss transition-all group`}
-                  >
-                    <div className={`absolute top-4 bottom-4 left-0 w-0.5 rounded-full ${m.isVirtual ? "bg-laurel" : "bg-gold"} `} />
-                    <div className="text-center flex flex-col justify-center leading-none text-ink pr-1 border-r border-line-soft select-none">
-                      <span className="font-serif font-semibold text-[22px] tracking-tighter">{m.time}</span>
-                      <span className="font-mono text-[8px] tracking-widest text-taupe-light mt-1.5 uppercase">{m.period}</span>
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="font-serif font-medium text-base text-ink truncate">{m.leadName}</h4>
-                      <p className="text-xs text-taupe mt-0.5 truncate">{m.orgName}</p>
-                      <div className="flex items-center gap-1.5 mt-2 text-[10px] text-gold font-mono uppercase tracking-wider font-semibold">
-                        <span className={`px-2 py-0.5 rounded-full ${m.isVirtual ? "bg-laurel/10 text-laurel" : "bg-gold/10 text-gold"} `}>
-                          {m.isVirtual ? "Virtual" : "Floor Venue"}
-                        </span>
-                        <span className="text-taupe-light font-normal text-[9px]">{m.location}</span>
+                {meetings.filter(m => !m.dateStr.includes("Today")).map((m) => {
+                  const mins = getMeetingRemainingMinutes(m, currentTime);
+                  const isUrgent = mins !== null && mins >= 0 && mins <= 15;
+                  
+                  const durationStr = m.duration || "30 min";
+                  const durationMins = parseInt(durationStr, 10) || 30;
+                  const isActiveNow = mins !== null && mins < 0 && mins >= -durationMins;
+
+                  let cardStyle = "border-line bg-ivory hover:border-moss";
+                  let bgLeftLineColor = m.isVirtual ? "bg-laurel" : "bg-gold";
+                  let glowAnimation = "";
+
+                  if (isUrgent) {
+                    cardStyle = "border-gold/60 bg-gold/5 hover:border-gold hover:shadow-md";
+                    bgLeftLineColor = "bg-gold";
+                    glowAnimation = "ring-2 ring-gold/20 animate-pulse";
+                  } else if (isActiveNow) {
+                    cardStyle = "border-laurel/60 bg-laurel/5 hover:border-laurel hover:shadow-md";
+                    bgLeftLineColor = "bg-laurel";
+                    glowAnimation = "ring-2 ring-laurel/20 animate-pulse";
+                  }
+
+                  return (
+                    <div
+                      key={m.id}
+                      onClick={() => {
+                        const associatedLead = leads.find(l => l.id === m.leadId);
+                        if (associatedLead) onSelectItem(associatedLead);
+                      }}
+                      className={`grid grid-cols-[56px_1fr_auto] gap-4 p-4 rounded cursor-pointer relative transition-all group ${cardStyle} ${glowAnimation}`}
+                    >
+                      <div className={`absolute top-4 bottom-4 left-0 w-1 rounded-full ${bgLeftLineColor}`} />
+                      <div className="text-center flex flex-col justify-center leading-none text-ink pr-1 border-r border-line-soft select-none">
+                        <span className="font-serif font-semibold text-[22px] tracking-tighter">{m.time}</span>
+                        <span className="font-mono text-[8px] tracking-widest text-taupe-light mt-1.5 uppercase">{m.period}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+                          <h4 className="font-serif font-medium text-base text-ink truncate">{m.leadName}</h4>
+                          {isUrgent && (
+                            <span className="px-1.5 py-0.5 rounded bg-gold text-ink font-mono text-[8px] font-bold tracking-wider uppercase flex items-center gap-0.5 shadow-sm">
+                              <span className="w-1 h-1 rounded-full bg-ink animate-ping" />
+                              Starts in {mins === 0 ? "NOW" : `${mins}m`}
+                            </span>
+                          )}
+                          {isActiveNow && (
+                            <span className="px-1.5 py-0.5 rounded bg-laurel text-cream font-mono text-[8px] font-bold tracking-wider uppercase flex items-center gap-1 shadow-sm">
+                              <span className="w-1.5 h-1.5 rounded-full bg-cream animate-ping" />
+                              Active Now
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-taupe mt-0.5 truncate">{m.orgName}</p>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[10px] text-gold font-mono uppercase tracking-wider font-semibold">
+                          <span className={`px-2 py-0.5 rounded-full ${m.isVirtual ? "bg-laurel/10 text-laurel" : "bg-gold/10 text-gold"} `}>
+                            {m.isVirtual ? "Virtual" : "Floor Venue"}
+                          </span>
+                          <span className="text-taupe-light font-normal text-[9px] truncate max-w-[200px]">{m.location}</span>
+                          {mins !== null && mins < -durationMins && (
+                            <span className="text-taupe-light font-normal text-[9px] line-through ml-auto">Concluded</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="self-center shrink-0">
+                        <div className="w-8 h-8 rounded-full border border-line flex items-center justify-center text-taupe group-hover:text-moss group-hover:border-moss transition-all bg-white/50">
+                          <span>→</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="self-center">
-                      <div className="w-8 h-8 rounded-full border border-line flex items-center justify-center text-taupe group-hover:text-moss group-hover:border-moss transition-all">
-                        <span>→</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1986,9 +2470,9 @@ export const InvestorCapture: React.FC<InvestorCaptureProps> = ({
       {/* Detailed Document Print Preview Modal */}
       <AnimatePresence>
         {isPrintPreviewOpen && (
-          <div className="fixed inset-0 z-[120] flex flex-col bg-stone-900/60 backdrop-blur-md overflow-hidden text-left font-sans no-print">
+          <div className="fixed inset-0 z-[120] flex flex-col bg-stone-900/60 backdrop-blur-md overflow-hidden text-left font-sans">
             {/* Control Bar */}
-            <div className="bg-cream border-b border-line p-4 flex flex-wrap items-center justify-between gap-4 z-10 w-full shadow-lg">
+            <div className="bg-cream border-b border-line p-4 flex flex-wrap items-center justify-between gap-4 z-10 w-full shadow-lg no-print">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-moss/10 flex items-center justify-center text-moss">
                   <Printer className="w-4 h-4" />
