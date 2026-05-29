@@ -1,0 +1,230 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Lora:ital,wght@0,400..700;1,400..700&family=Inter:ital,wght@0,300..700;1,300..700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+html {
+  scroll-behavior: smooth;
+}
+
+@theme {
+  --font-serif: "Playfair Display", "Lora", Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  
+  --color-cream: #FBFBF9; /* Soft Paper White main base */
+  --color-cream-deep: #F5F3EC; /* Extra light warm Sand surface base */
+  --color-ivory: #F5F3EC; /* Extra light warm Sand cards */
+  --color-parchment: #ECEAE1; /* Slightly darker sand for backing panels */
+  --color-linen: #2C2B29; /* bespoke charcoal editorial ink text */
+  --color-moss: #C15C3D; /* Burnished Terracotta / Rust Ochre CTA and highlights */
+  --color-moss-deep: #A74D31; /* Deeper terracotta */
+  --color-moss-soft: #C15C3D; /* Burnished Ochre */
+  --color-olive: #1E352F; /* Deep Forest Green / Pine */
+  --color-sage: #2A453F;
+  --color-sage-soft: rgba(30, 53, 47, 0.08);
+  --color-gold: #C15C3D; /* Burnished Terracotta / Rust Ochre CTA and highlights */
+  --color-gold-soft: #D37B5C;
+  --color-gold-light: #F7E4DC; /* soft pinkish/terracotta light undertone */
+  --color-ink: #100F0D; /* Crisp newspaper print black */
+  --color-ink-soft: #4E4D4A; /* Soft charcoal news grey text */
+  --color-taupe: #7A7874; /* mid grey */
+  --color-taupe-light: #9E9D99; /* light gray for metadata */
+  --color-mist: #E4E1D7; /* Delicate hairline divider sand */
+  --color-line: rgba(30, 53, 47, 0.08); /* thin sand/forest border */
+  --color-line-soft: rgba(30, 53, 47, 0.04);
+  --color-laurel: #1E352F; /* Deep Forest Green / Pine */
+  --color-clay: #B05548; /* terracotta orange warning/error */
+
+  /* Map standard Slate scale to keep structural components fully beautiful on light-paper */
+  --color-slate-950: #FBFBF9; /* Main background */
+  --color-slate-900: #F5F3EC; /* Primary Sand surfaces */
+  --color-slate-800: #ECEAE1; /* Secondary Sand wrappers */
+  --color-slate-700: #E4E1D7; /* Hairline divider accent */
+  --color-slate-600: #9E9D99; /* Muted metadata text */
+  --color-slate-500: #7A7874; /* Secondary print body text */
+  --color-slate-400: #4E4D4A; /* Primary print body text */
+  --color-slate-300: #2C2B29; /* Deep news ink */
+  --color-slate-200: #100F0D; /* Title heading news print */
+  --color-slate-100: #100F0D;
+  --color-slate-5: #FBFBF9;
+
+  /* Map standard Amber scale to Burnished Terracotta / Rust Ochre */
+  --color-amber-500: #C15C3D;
+  --color-amber-400: #D37B5C;
+  --color-amber-600: #A74D31;
+  --color-amber-300: #E09E83;
+  --color-amber-200: #EDC1B1;
+  --color-amber-100: #F7E4DC;
+  --color-amber-50: #FBFBF9;
+
+  /* Map emerald/green scale to Deep Forest Green / Pine */
+  --color-emerald-500: #1E352F;
+  --color-emerald-400: #2C4B43;
+  --color-emerald-600: #12211D;
+  --color-emerald-100: rgba(30, 53, 47, 0.08);
+  
+  --color-rose-600: #C15C3D; /* Remap decorative pink/rose gradients to Burnished Ochre */
+  --color-rose-500: #D37B5C;
+  --color-rose-400: #E09E83;
+
+  /* Minimize drop shadows to look like flat letterpress print sheets */
+  --shadow-sm: 0 1px 1px 0 rgba(30, 53, 47, 0.01);
+  --shadow-md: 0 1px 2px 0 rgba(30, 53, 47, 0.02);
+  --shadow-lg: 0 2px 4px 0 rgba(30, 53, 47, 0.02), 0 1px 2px 0 rgba(30, 53, 47, 0.01);
+  --shadow-xl: 0 4px 12px 0 rgba(30, 53, 47, 0.03), 0 2px 6px 0 rgba(30, 53, 47, 0.02);
+  --shadow-2xl: 0 8px 24px 0 rgba(30, 53, 47, 0.04), 0 4px 12px 0 rgba(30, 53, 47, 0.02);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-cream);
+    color: var(--color-slate-400);
+    font-family: var(--font-sans);
+    letter-spacing: -0.011em;
+  }
+
+  /* Make standard tag headers beautiful with serif */
+  h1, h2, h3, .font-serif, [class*="font-serif"] {
+    font-family: var(--font-serif) !important;
+    letter-spacing: -0.025em;
+  }
+
+  /* Subtle border overrides for beautiful editorial hairline dividers */
+  .border-white\/5, .border-white\/10, .border-white\/20, .border-white\/30, .border-line {
+    border-color: var(--color-mist) !important;
+    border-width: 1px !important;
+  }
+
+  /* Input fields focusing setup for editorial print */
+  input, select, textarea {
+    font-family: var(--font-sans);
+    transition: all 0.2s ease-in-out;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--color-moss) !important;
+    box-shadow: 0 0 0 1px var(--color-moss) !important;
+  }
+  
+  input::placeholder {
+    color: var(--color-taupe-light) !important;
+    opacity: 0.8;
+  }
+
+  /* Custom selection color specifically styled for Newspaper editorial context */
+  ::selection {
+    background-color: rgba(193, 92, 61, 0.12) !important;
+    color: var(--color-ink) !important;
+  }
+}
+
+/* Print-like ambient accent blooms */
+.vibrant-glow-blob {
+  filter: blur(160px);
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.1 !important; /* Soft sand glow */
+}
+
+/* Staggered news column transitions */
+@keyframes fadeInColumn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-column {
+  animation: fadeInColumn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Animations and micro transitions */
+@keyframes letterpressPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.pulse-glow {
+  animation: letterpressPulse 2.5s infinite ease-in-out;
+}
+
+/* Scrollbar styles tuned for sand and charcoal */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-cream-deep);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-mist);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-taupe);
+}
+
+/* Print-friendly rules for compiled dossiers */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-dossier-root, .print-dossier-root * {
+    visibility: visible;
+  }
+  .print-dossier-root {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt !important;
+  }
+  .no-print, .no-print * {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  .print-only {
+    display: block !important;
+    visibility: visible !important;
+  }
+  .print-dark-text {
+    color: #000000 !important;
+  }
+  .print-no-border {
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .print-avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  .print-page-break {
+    page-break-before: always !important;
+    break-before: always !important;
+  }
+}
+.print-only {
+  display: none;
+}
